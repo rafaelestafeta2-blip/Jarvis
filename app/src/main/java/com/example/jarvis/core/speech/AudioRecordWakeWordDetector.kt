@@ -148,6 +148,9 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
         override fun onEndOfSpeech() {}
         override fun onError(error: Int) {
             if (!isActive || isPaused) return
+            if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) {
+                destroyRecognizer()
+            }
             scheduleRestart(RESTART_DELAY_MS)
         }
         override fun onResults(results: Bundle?) {
@@ -164,8 +167,12 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
         if (matches.isNullOrEmpty() || !isActive || isPaused) return
         for (hypothesis in matches) {
             val text = hypothesis.lowercase().trim()
-            if (wakeWords.any { text.contains(it) }) {
-                Log.i(TAG, "WAKE WORD DETECTED: '$text'")
+            val detected = text.contains("jarvis") || text.contains("javis") ||
+                           text.contains("jarves") || text.contains("jarbas") ||
+                           text.contains("jarvi") || text.contains("iarvis") ||
+                           wakeWords.any { text.contains(it) }
+            if (detected) {
+                Log.i(TAG, "🔥 WAKE WORD DETECTED: '$text'")
                 currentConfidence = 0.95f
                 wakeWordCallback?.onWakeWordDetected(text, currentConfidence)
                 break

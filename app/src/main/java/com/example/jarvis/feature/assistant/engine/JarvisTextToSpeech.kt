@@ -30,16 +30,47 @@ class JarvisTextToSpeech(
             } else {
                 val defaultLocale = Locale.getDefault()
                 tts?.setLanguage(defaultLocale)
-                Log.i(tag, "TTS fallback to ${defaultLocale.displayName}")
             }
 
-            // Jarvis iconic voice cadence: slightly deeper pitch and calm cadence
-            tts?.setPitch(0.92f)
-            tts?.setSpeechRate(1.02f)
+            // Select Male Voice in Portuguese (filter out female voices)
+            configureMaleVoice()
+
+            // Jarvis iconic deep, calm, authoritative robotic resonance
+            tts?.setPitch(0.76f)
+            tts?.setSpeechRate(0.98f)
             setupListener()
             isInitialized = true
+            Log.i(tag, "JarvisTextToSpeech initialized with male tone")
         } else {
             Log.e(tag, "Failed to initialize TextToSpeech: status $status")
+        }
+    }
+
+    private fun configureMaleVoice() {
+        try {
+            val voices = tts?.voices
+            if (!voices.isNullOrEmpty()) {
+                // Find male voice in pt-BR (Google TTS uses 'ptd' or 'yfs' or 'male' for male voices)
+                val maleVoice = voices.firstOrNull { v ->
+                    v.locale.language == "pt" && (
+                        v.name.contains("male", ignoreCase = true) ||
+                        v.name.contains("homem", ignoreCase = true) ||
+                        v.name.contains("ptd", ignoreCase = true) ||
+                        v.name.contains("yfs", ignoreCase = true) ||
+                        v.name.contains("#male", ignoreCase = true) ||
+                        v.features?.any { it.contains("male", ignoreCase = true) } == true
+                    )
+                } ?: voices.firstOrNull { v ->
+                    v.locale.language == "pt" && !v.name.contains("female", ignoreCase = true) && !v.name.contains("mulher", ignoreCase = true)
+                }
+
+                if (maleVoice != null) {
+                    tts?.voice = maleVoice
+                    Log.i(tag, "Selected Jarvis male voice: ${maleVoice.name}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "Error selecting male voice: ${e.message}")
         }
     }
 
@@ -48,11 +79,9 @@ class JarvisTextToSpeech(
             override fun onStart(utteranceId: String?) {
                 onSpeakingStateChanged(true)
             }
-
             override fun onDone(utteranceId: String?) {
                 onSpeakingStateChanged(false)
             }
-
             override fun onError(utteranceId: String?) {
                 onSpeakingStateChanged(false)
             }
@@ -69,9 +98,7 @@ class JarvisTextToSpeech(
         try {
             tts?.stop()
             onSpeakingStateChanged(false)
-        } catch (e: Exception) {
-            Log.w(tag, "Error stopping TTS", e)
-        }
+        } catch (_: Exception) {}
     }
 
     fun shutdown() {

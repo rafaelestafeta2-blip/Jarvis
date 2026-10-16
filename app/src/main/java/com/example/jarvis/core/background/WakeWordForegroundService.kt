@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
@@ -18,6 +20,7 @@ import androidx.core.app.ServiceCompat
 import com.example.jarvis.core.speech.AudioRecordWakeWordDetector
 import com.example.jarvis.core.speech.GlobalAssistantStateMachine
 import com.example.jarvis.core.speech.WakeWordCallback
+import com.example.jarvis.feature.assistant.engine.JarvisTextToSpeech
 import com.example.jarvis.feature.assistant.ui.AssistantOverlayService
 
 class WakeWordForegroundService : Service(), WakeWordCallback {
@@ -36,12 +39,15 @@ class WakeWordForegroundService : Service(), WakeWordCallback {
 
     private var detector: AudioRecordWakeWordDetector? = null
     private var vibrator: Vibrator? = null
+    private var tts: JarvisTextToSpeech? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        tts = JarvisTextToSpeech(this)
         createNotificationChannel()
     }
 
@@ -51,7 +57,6 @@ class WakeWordForegroundService : Service(), WakeWordCallback {
             stopServiceInternal()
             return START_NOT_STICKY
         }
-
         startForegroundServiceInternal()
         return START_STICKY
     }
@@ -64,7 +69,6 @@ class WakeWordForegroundService : Service(), WakeWordCallback {
 
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
         isRunning = true
-
         startDetector()
     }
 
@@ -86,19 +90,29 @@ class WakeWordForegroundService : Service(), WakeWordCallback {
         Log.i(TAG, "Wake word detected: $phrase (confidence: $confidence)")
         vibrateFeedback()
 
+        // 1. Voice response from Jarvis
+        tts?.speak("Sim, Chefe? Ao seu dispor.")
+
         detector?.pauseListening()
         GlobalAssistantStateMachine.transitionToSync(GlobalAssistantStateMachine.AssistantState.WAKEDETECTED)
 
-        // Launch the Assistant Overlay
+        // 2. Launch Assistant Overlay
         val overlayIntent = Intent(this, AssistantOverlayService::class.java).apply {
             action = AssistantOverlayService.ACTION_SHOW_ASSISTANT
             putExtra("wake_phrase", phrase)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(overlayIntent)
-        } else {
-            startService(overlayIntent)
-        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(overlayIntent)
+            } else {
+                startService(overlayIntent)
+            }
+        } catch (_: Exception) {}
+
+        // Resume listening after 6s
+        mainHandler.postDelayed({
+            detector?.resumeListening()
+        }, 6000L)
     }
 
     override fun onError(errorMessage: String) {
@@ -131,6 +145,8 @@ class WakeWordForegroundService : Service(), WakeWordCallback {
 
     override fun onDestroy() {
         stopServiceInternal()
+        tts?.shutdown()
+        tts = null
         super.onDestroy()
     }
 
@@ -160,7 +176,7 @@ class WakeWordForegroundService : Service(), WakeWordCallback {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("JARVIS OS")
-            .setContentText("Listening for 'Jarvis' wake-word...")
+            .setContentText("Escutando por 'Jarvis'...")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

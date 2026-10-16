@@ -45,12 +45,18 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         if (results[Manifest.permission.RECORD_AUDIO] == true) {
-            Toast.makeText(this, "Permissões concedidas. JARVIS operacional.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Permissão de voz ativa. JARVIS pronto.", Toast.LENGTH_SHORT).show()
             startWakeWordService()
         }
         if (results[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
             gpsManager.startSentinelMonitoring()
         }
+    }
+
+    private val smsPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) Toast.makeText(this, "Permissão de SMS concedida.", Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,7 +100,11 @@ class MainActivity : ComponentActivity() {
                         Toast.makeText(this, "Identidade biométrica verificada: Bem-vindo, Chefe ${profile.masterName}!", Toast.LENGTH_LONG).show()
                         assistantViewModel.submitQuery("quem sou eu")
                     },
+                    onGrantMic = { permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO)) },
                     onGrantOverlay = { requestOverlayPermission() },
+                    onGrantPhone = { permissionLauncher.launch(arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_CONTACTS)) },
+                    onGrantSms = { smsPermissionLauncher.launch(Manifest.permission.SEND_SMS) },
+                    onGrantCamera = { permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA)) },
                     onGrantBattery = { BatteryOptimizationHelper.requestIgnoreBatteryOptimizationsIfNeeded(this) },
                     onGrantAccessibility = { openSettings(Settings.ACTION_ACCESSIBILITY_SETTINGS) },
                     onGrantNotificationListener = { openSettings(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS) },
@@ -120,8 +130,6 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.CALL_PHONE,
             Manifest.permission.READ_CONTACTS,
-            Manifest.permission.SEND_SMS,
-            Manifest.permission.READ_SMS,
             Manifest.permission.CAMERA
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

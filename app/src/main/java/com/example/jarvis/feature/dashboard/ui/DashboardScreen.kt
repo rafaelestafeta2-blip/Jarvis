@@ -64,7 +64,11 @@ fun DashboardScreen(
     onScanRoadAhead: () -> Unit,
     onToggleMasterLock: (Boolean) -> Unit,
     onVerifyBiometrics: () -> Unit,
+    onGrantMic: () -> Unit,
     onGrantOverlay: () -> Unit,
+    onGrantPhone: () -> Unit,
+    onGrantSms: () -> Unit,
+    onGrantCamera: () -> Unit,
     onGrantBattery: () -> Unit,
     onGrantAccessibility: () -> Unit,
     onGrantNotificationListener: () -> Unit,
@@ -73,9 +77,7 @@ fun DashboardScreen(
     var showEmbeddedAssistant by remember { mutableStateOf(false) }
 
     Scaffold(containerColor = ObsidianBlack) { innerPadding ->
-        Box(
-            modifier = Modifier.fillMaxSize().padding(innerPadding)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -140,11 +142,11 @@ fun DashboardScreen(
                         isAccessibilityEnabled = isAccessibilityEnabled,
                         isNotificationListenerEnabled = isNotificationListenerEnabled,
                         canWriteSettings = canWriteSettings,
-                        onGrantMic = onGrantAllPermissions,
+                        onGrantMic = onGrantMic,
                         onGrantOverlay = onGrantOverlay,
-                        onGrantPhone = onGrantAllPermissions,
-                        onGrantSms = onGrantAllPermissions,
-                        onGrantCamera = onGrantAllPermissions,
+                        onGrantPhone = onGrantPhone,
+                        onGrantSms = onGrantSms,
+                        onGrantCamera = onGrantCamera,
                         onGrantBattery = onGrantBattery,
                         onGrantAccessibility = onGrantAccessibility,
                         onGrantNotificationListener = onGrantNotificationListener,
