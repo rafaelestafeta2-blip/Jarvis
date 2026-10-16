@@ -38,7 +38,7 @@ fun EngineControlCard(
     GlassmorphicCard(modifier = modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(
-                text = "Engine Core State",
+                text = "Motores Principais do Sistema",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -53,10 +53,10 @@ fun EngineControlCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Wake Word Engine", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text("AudioRecord detector for 'Jarvis'", fontSize = 11.sp, color = TextMuted)
+                    Text("Escuta Contínua por Voz ('Jarvis')", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Text("Sensor acústico silencioso em segundo plano", fontSize = 11.sp, color = TextMuted)
                 }
-                StatusBadge(active = isWakeWordRunning)
+                StatusBadge(active = isWakeWordRunning, activeText = "ATIVO", inactiveText = "PAUSADO")
             }
 
             Button(
@@ -72,7 +72,7 @@ fun EngineControlCard(
                     .testTag("toggle_wake_word_button")
             ) {
                 Text(
-                    text = if (isWakeWordRunning) "Stop Wake Word Engine" else "Start Wake Word Engine",
+                    text = if (isWakeWordRunning) "⏸️ Pausar Escuta 'Jarvis'" else "▶️ Ativar Escuta Contínua",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -85,10 +85,10 @@ fun EngineControlCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Assistant Overlay Window", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text("System Alert Window over other apps", fontSize = 11.sp, color = TextMuted)
+                    Text("Janela Flutuante do Assistente (Overlay)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Text("Permite conversar por cima de outros apps", fontSize = 11.sp, color = TextMuted)
                 }
-                StatusBadge(active = isOverlayRunning)
+                StatusBadge(active = isOverlayRunning, activeText = "ABERTO", inactiveText = "FECHADO")
             }
 
             Button(
@@ -104,7 +104,7 @@ fun EngineControlCard(
                     .testTag("toggle_overlay_button")
             ) {
                 Text(
-                    text = if (isOverlayRunning) "Close Assistant Overlay" else "Launch Assistant Overlay",
+                    text = if (isOverlayRunning) "Fechar Janela Flutuante" else "Abrir Janela Flutuante",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )

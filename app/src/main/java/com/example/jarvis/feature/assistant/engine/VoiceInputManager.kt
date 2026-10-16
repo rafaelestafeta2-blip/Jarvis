@@ -79,7 +79,10 @@ class VoiceInputManager(
         override fun onError(error: Int) {
             isListening = false
             Log.w(tag, "Speech recognition error code: $error")
-            onError("Reconhecimento pausado (código $error)")
+            if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) {
+                try { recognizer?.destroy(); recognizer = null } catch (_: Exception) {}
+            }
+            onError("Pronto para ouvir")
         }
         override fun onResults(results: Bundle?) {
             isListening = false

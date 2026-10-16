@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Bundle
@@ -22,11 +23,13 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
     companion object {
         private const val TAG = "JarvisWakeDetector"
         private const val SAMPLE_RATE = 16000
-        private const val VOICE_ENERGY_THRESHOLD = 1800
+        private const val VOICE_ENERGY_THRESHOLD = 14000
+        private const val RESTART_COOLDOWN_MS = 4000L
     }
 
     private var appContext: Context? = null
     private var wakeWordCallback: WakeWordCallback? = null
+    private val audioManager by lazy { appContext?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
     @Volatile private var isInitialized = false
     @Volatile private var isActive = false
     @Volatile private var isPaused = false
@@ -58,6 +61,7 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
         isPaused = true
         stopAudioRecord()
         mainHandler.post {
+            unmuteSystemSounds()
             try { speechRecognizer?.cancel() } catch (_: Exception) {}
             isRecognizing = false
         }
@@ -74,16 +78,14 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
         isPaused = false
         stopAudioRecord()
         mainHandler.post {
+            unmuteSystemSounds()
             try { speechRecognizer?.destroy() } catch (_: Exception) {}
             speechRecognizer = null
             isRecognizing = false
         }
     }
 
-    override fun release() {
-        stopListening()
-        isInitialized = false
-    }
+    override fun release() { stopListening(); isInitialized = false }
 
     @SuppressLint("MissingPermission")
     private fun startSilentAudioMonitor() {
@@ -97,6 +99,7 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
             audioRecord?.startRecording()
             thread(name = "JarvisVADThread") {
                 val buffer = ShortArray(bufferSize)
+                var speechFramesCount = 0
                 while (isActive && !isPaused && !isRecognizing) {
                     val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                     if (read > 0) {
@@ -106,10 +109,13 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
                             if (abs > maxAmp) maxAmp = abs
                         }
                         if (maxAmp > VOICE_ENERGY_THRESHOLD) {
-                            stopAudioRecord()
-                            mainHandler.post { launchSpeechRecognition() }
-                            break
-                        }
+                            speechFramesCount++
+                            if (speechFramesCount >= 2) {
+                                stopAudioRecord()
+                                mainHandler.post { launchSpeechRecognition() }
+                                break
+                            }
+                        } else speechFramesCount = 0
                     }
                 }
             }
@@ -121,9 +127,24 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
         audioRecord = null
     }
 
+    private fun muteSystemSounds() {
+        try {
+            audioManager?.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_MUTE, 0)
+            audioManager?.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0)
+        } catch (_: Exception) {}
+    }
+
+    private fun unmuteSystemSounds() {
+        try {
+            audioManager?.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
+            audioManager?.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0)
+        } catch (_: Exception) {}
+    }
+
     private fun launchSpeechRecognition() {
         if (!isActive || isPaused || isRecognizing) return
         isRecognizing = true
+        muteSystemSounds()
         try {
             if (speechRecognizer == null) {
                 speechRecognizer = SpeechRecognizer.createSpeechRecognizer(appContext).apply { setRecognitionListener(createListener()) }
@@ -138,6 +159,7 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
             speechRecognizer?.startListening(intent)
         } catch (_: Exception) {
             isRecognizing = false
+            unmuteSystemSounds()
             startSilentAudioMonitor()
         }
     }
@@ -147,15 +169,17 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
         override fun onBeginningOfSpeech() {}
         override fun onRmsChanged(rmsdB: Float) {}
         override fun onBufferReceived(buffer: ByteArray?) {}
-        override fun onEndOfSpeech() {}
+        override fun onEndOfSpeech() { unmuteSystemSounds() }
         override fun onError(error: Int) {
+            unmuteSystemSounds()
             isRecognizing = false
-            mainHandler.postDelayed({ startSilentAudioMonitor() }, 800L)
+            mainHandler.postDelayed({ startSilentAudioMonitor() }, RESTART_COOLDOWN_MS)
         }
         override fun onResults(results: Bundle?) {
+            unmuteSystemSounds()
             isRecognizing = false
             processMatches(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION))
-            mainHandler.postDelayed({ startSilentAudioMonitor() }, 600L)
+            mainHandler.postDelayed({ startSilentAudioMonitor() }, RESTART_COOLDOWN_MS)
         }
         override fun onPartialResults(partialResults: Bundle?) {
             processMatches(partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION))
