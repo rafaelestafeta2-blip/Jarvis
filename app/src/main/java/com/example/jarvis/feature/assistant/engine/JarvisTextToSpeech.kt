@@ -16,7 +16,13 @@ class JarvisTextToSpeech(
     private var isInitialized = false
 
     init {
-        tts = TextToSpeech(context.applicationContext, this)
+        // Prefer Google TTS engine to avoid Samsung SMT female voice default
+        val googleEngine = "com.google.android.tts"
+        tts = try {
+            TextToSpeech(context.applicationContext, this, googleEngine)
+        } catch (_: Exception) {
+            TextToSpeech(context.applicationContext, this)
+        }
     }
 
     override fun onInit(status: Int) {
@@ -32,17 +38,29 @@ class JarvisTextToSpeech(
                 tts?.setLanguage(defaultLocale)
             }
 
-            // Select Male Voice in Portuguese (filter out female voices)
+            // Select Male Voice in Portuguese
             configureMaleVoice()
 
-            // Jarvis iconic deep, calm, authoritative robotic resonance
-            tts?.setPitch(0.76f)
-            tts?.setSpeechRate(0.98f)
+            // Jarvis iconic deep, baritone, calm resonance
+            tts?.setPitch(0.70f)
+            tts?.setSpeechRate(0.96f)
             setupListener()
             isInitialized = true
-            Log.i(tag, "JarvisTextToSpeech initialized with male tone")
+            Log.i(tag, "JarvisTextToSpeech initialized with deep baritone tone")
         } else {
-            Log.e(tag, "Failed to initialize TextToSpeech: status $status")
+            // Fallback to default engine if Google TTS failed to init
+            try {
+                tts = TextToSpeech(context.applicationContext) { fallbackStatus ->
+                    if (fallbackStatus == TextToSpeech.SUCCESS) {
+                        tts?.setLanguage(Locale("pt", "BR"))
+                        configureMaleVoice()
+                        tts?.setPitch(0.70f)
+                        tts?.setSpeechRate(0.96f)
+                        setupListener()
+                        isInitialized = true
+                    }
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -50,18 +68,18 @@ class JarvisTextToSpeech(
         try {
             val voices = tts?.voices
             if (!voices.isNullOrEmpty()) {
-                // Find male voice in pt-BR (Google TTS uses 'ptd' or 'yfs' or 'male' for male voices)
                 val maleVoice = voices.firstOrNull { v ->
                     v.locale.language == "pt" && (
                         v.name.contains("male", ignoreCase = true) ||
                         v.name.contains("homem", ignoreCase = true) ||
                         v.name.contains("ptd", ignoreCase = true) ||
                         v.name.contains("yfs", ignoreCase = true) ||
-                        v.name.contains("#male", ignoreCase = true) ||
-                        v.features?.any { it.contains("male", ignoreCase = true) } == true
+                        v.name.contains("#male", ignoreCase = true)
                     )
                 } ?: voices.firstOrNull { v ->
-                    v.locale.language == "pt" && !v.name.contains("female", ignoreCase = true) && !v.name.contains("mulher", ignoreCase = true)
+                    v.locale.language == "pt" &&
+                    !v.name.contains("female", ignoreCase = true) &&
+                    !v.name.contains("mulher", ignoreCase = true)
                 }
 
                 if (maleVoice != null) {
