@@ -87,7 +87,6 @@ class AssistantViewModel(private val context: Context) : ViewModel() {
                         isVoiceInputActive.set(false)
                         // Auto-send voice input to backend
                         sendText(text)
-                        resumeWakeWordService()
                     } else {
                         _uiState.value = _uiState.value.copy(
                             voiceTranscript = text
@@ -98,14 +97,17 @@ class AssistantViewModel(private val context: Context) : ViewModel() {
         },
         onError = { error ->
             viewModelScope.launch {
-                mutex.withLock {
+                val shouldResume = mutex.withLock {
                     _uiState.value = _uiState.value.copy(
                         isListening = false
                     )
                     isVoiceInputActive.set(false)
+                    !_uiState.value.isOverlayVisible
                 }
                 Log.e(TAG, "Voice input error: $error")
-                resumeWakeWordService()
+                if (shouldResume) {
+                    resumeWakeWordService()
+                }
             }
         }
     )
@@ -317,6 +319,7 @@ class AssistantViewModel(private val context: Context) : ViewModel() {
 
         // Do NOT release VoiceInputManager — wake word engine keeps running independently
         isVoiceInputActive.set(false)
+        resumeWakeWordService()
     }
     
     /**

@@ -199,11 +199,16 @@ class WakeWordForegroundService : Service(), WakeWordCallback {
             }
             ACTION_PAUSE_DETECTION -> {
                 Log.i(TAG, "PAUSE_DETECTION command received")
-                stopWakeWordDetection()
+                (wakeWordDetector as? AudioRecordWakeWordDetector)?.pauseListening() ?: stopWakeWordDetection()
             }
             ACTION_RESUME_DETECTION -> {
                 Log.i(TAG, "RESUME_DETECTION command received")
-                serviceScope.launch { resumeWakeWordDetection() }
+                val detector = wakeWordDetector as? AudioRecordWakeWordDetector
+                if (detector != null) {
+                    detector.resumeListening()
+                } else {
+                    serviceScope.launch { resumeWakeWordDetection() }
+                }
             }
             else -> {
                 Log.w(TAG, "Unhandled action: $action")

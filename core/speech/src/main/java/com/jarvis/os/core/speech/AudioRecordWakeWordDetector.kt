@@ -139,13 +139,16 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, appContext?.packageName)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 3000L)
             }
 
             speechRecognizer?.startListening(intent)
 
         } catch (e: Exception) {
             Log.e(TAG, "Error in initAndStartRecognizer: ${e.message}")
-            scheduleRestart(1000L)
+            scheduleRestart(2000L)
         }
     }
 
@@ -177,12 +180,23 @@ class AudioRecordWakeWordDetector : WakeWordDetector {
 
         override fun onError(error: Int) {
             if (!isActive || isPaused) return
-            scheduleRestart(RESTART_DELAY_MS)
+            Log.w(TAG, "Wake word recognizer onError code $error")
+            val delayMs = when (error) {
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
+                SpeechRecognizer.ERROR_CLIENT,
+                11 -> {
+                    destroyRecognizer()
+                    3000L
+                }
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> 10000L
+                else -> 1500L
+            }
+            scheduleRestart(delayMs)
         }
 
         override fun onResults(results: Bundle?) {
             processMatches(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION))
-            scheduleRestart(RESTART_DELAY_MS)
+            scheduleRestart(1500L)
         }
 
         override fun onPartialResults(partialResults: Bundle?) {

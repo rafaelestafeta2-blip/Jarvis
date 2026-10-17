@@ -33,30 +33,35 @@ class JarvisTextToSpeech(context: Context) : TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val result = tts?.setLanguage(Locale.US)
+            val defaultLocale = Locale.getDefault()
+            var result = tts?.setLanguage(defaultLocale)
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.e(TAG, "Language US is not supported or missing data")
-            } else {
-                isInitialized = true
-                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {
-                        Log.i(TAG, "TTS Utterance started: $utteranceId")
-                        GlobalAssistantStateMachine.transitionToSync(AssistantState.SPEAKING)
-                    }
-
-                    override fun onDone(utteranceId: String?) {
-                        Log.i(TAG, "TTS Utterance completed: $utteranceId")
-                        GlobalAssistantStateMachine.transitionToSync(AssistantState.CLOSING)
-                        GlobalAssistantStateMachine.transitionToSync(AssistantState.WAKELISTENING)
-                    }
-
-                    override fun onError(utteranceId: String?) {
-                        Log.e(TAG, "TTS Utterance error: $utteranceId")
-                        GlobalAssistantStateMachine.transitionToSync(AssistantState.WAKELISTENING)
-                    }
-                })
-                Log.i(TAG, "Speech Synthesis initialized successfully")
+                Log.w(TAG, "Default locale ($defaultLocale) not supported for TTS, trying US English")
+                result = tts?.setLanguage(Locale.US)
             }
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.w(TAG, "US English also not supported for TTS, using system default voice")
+            }
+            
+            isInitialized = true
+            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {
+                    Log.i(TAG, "TTS Utterance started: $utteranceId")
+                    GlobalAssistantStateMachine.transitionToSync(AssistantState.SPEAKING)
+                }
+
+                override fun onDone(utteranceId: String?) {
+                    Log.i(TAG, "TTS Utterance completed: $utteranceId")
+                    GlobalAssistantStateMachine.transitionToSync(AssistantState.CLOSING)
+                    GlobalAssistantStateMachine.transitionToSync(AssistantState.WAKELISTENING)
+                }
+
+                override fun onError(utteranceId: String?) {
+                    Log.e(TAG, "TTS Utterance error: $utteranceId")
+                    GlobalAssistantStateMachine.transitionToSync(AssistantState.WAKELISTENING)
+                }
+            })
+            Log.i(TAG, "Speech Synthesis initialized successfully")
         } else {
             Log.e(TAG, "Speech Synthesis initialization failed with status: $status")
         }
@@ -77,7 +82,10 @@ class JarvisTextToSpeech(context: Context) : TextToSpeech.OnInitListener {
         Log.d(TAG, "Speaking: $cleanText")
         try {
             GlobalAssistantStateMachine.transitionToSync(AssistantState.SPEAKING)
-            tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
+            val params = android.os.Bundle().apply {
+                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, UTTERANCE_ID)
+            }
+            tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params, UTTERANCE_ID)
         } catch (e: Exception) {
             Log.e(TAG, "Error playing audio feedback", e)
         }
