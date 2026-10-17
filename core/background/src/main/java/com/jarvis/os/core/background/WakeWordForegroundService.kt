@@ -148,9 +148,9 @@ class WakeWordForegroundService : Service(), WakeWordCallback {
         }
         instance = this
 
-        // Battery optimization request
-        val batteryOptGranted = BatteryOptimizationHelper.requestIgnoreBatteryOptimizationsIfNeeded(this)
-        Log.i(TAG, "BATTERY_OPT_REQUESTED granted=$batteryOptGranted")
+        // Check battery optimization status
+        val batteryOptGranted = BatteryOptimizationHelper.isIgnoringBatteryOptimizations(this)
+        Log.i(TAG, "BATTERY_OPT_STATUS ignoring=$batteryOptGranted")
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator

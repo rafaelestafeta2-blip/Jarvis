@@ -108,6 +108,11 @@ class BatteryOptimizationHelper {
                 return true
             }
 
+            if (context !is Activity) {
+                Log.w(TAG, "Cannot request ignore battery optimizations from non-Activity context: ${context.javaClass.name}")
+                return false
+            }
+
             try {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                     data = Uri.parse("package:${context.packageName}")

@@ -89,22 +89,15 @@ class VoiceInputManager(
 
                 // The state machine now handles reset from overlay-visible states
                 // (PROCESSING, AI_RESPONSE, TEXT_TO_SPEECH) → OPEN_OVERLAY → START_SPEECH_RECOGNIZER
-                val acquired = runBlocking {
-                    MicrophoneStateMachine.speechRecognizerAcquire() &&
-                        MicrophoneStateMachine.speechRecognizerStart()
-                }
-                if (!acquired) {
-                    val owner = MicrophoneStateMachine.currentOwner()
-                    val state = MicrophoneStateMachine.currentState()
-                    Log.e(TAG, "event=\"Mic Acquire Denied\" component=\"SpeechRecognizer\" owner=\"$owner\" state=\"$state\"")
-                    onError("Microphone busy — please try again")
-                    return@Runnable
+                vmScope.launch {
+                    MicrophoneStateMachine.speechRecognizerAcquire()
+                    MicrophoneStateMachine.speechRecognizerStart()
                 }
 
                 // Request audio focus
                 if (!requestAudioFocus()) {
                     Log.e(TAG, "Audio focus request failed")
-                    runBlocking { MicrophoneStateMachine.transitionTo(MicrophoneStateMachine.State.OPEN_OVERLAY) }
+                    vmScope.launch { MicrophoneStateMachine.transitionTo(MicrophoneStateMachine.State.OPEN_OVERLAY) }
                     onError("Audio focus not granted")
                     return@Runnable
                 }
@@ -121,7 +114,7 @@ class VoiceInputManager(
                     
                     override fun onBeginningOfSpeech() {
                         Log.d(TAG, "Beginning of speech")
-                        runBlocking { MicrophoneStateMachine.speechRecognizerVoiceInput() }
+                        vmScope.launch { MicrophoneStateMachine.speechRecognizerVoiceInput() }
                     }
                     
                     override fun onRmsChanged(rmsdB: Float) {
@@ -156,7 +149,7 @@ class VoiceInputManager(
                         }
                         Log.e(TAG, "Speech recognition error ($error): $message")
                         destroyRecognizerSync()
-                        runBlocking {
+                        vmScope.launch {
                             MicrophoneStateMachine.transitionTo(MicrophoneStateMachine.State.OPEN_OVERLAY)
                         }
                         
@@ -184,7 +177,7 @@ class VoiceInputManager(
                             val text = matches[0]
                             Log.i(TAG, "event=\"SpeechRecognizer Stopped\" reason=\"final_result\"")
                             destroyRecognizerSync()
-                            runBlocking {
+                            vmScope.launch {
                                 MicrophoneStateMachine.speechRecognizerVoiceInput()
                                 MicrophoneStateMachine.speechRecognizerProcessing()
                             }
@@ -200,7 +193,7 @@ class VoiceInputManager(
                         if (matches != null && matches.isNotEmpty()) {
                             val text = matches[0]
                             Log.d(TAG, "Partial result: $text")
-                            runBlocking { MicrophoneStateMachine.speechRecognizerVoiceInput() }
+                            vmScope.launch { MicrophoneStateMachine.speechRecognizerVoiceInput() }
                             onResult(text, false)
                         }
                     }
